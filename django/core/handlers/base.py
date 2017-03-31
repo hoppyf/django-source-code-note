@@ -63,10 +63,12 @@ class BaseHandler(object):
                         logger.debug('MiddlewareNotUsed: %r', middleware_path)
                 continue
             # 判断middleware是否有以下属性，分别加入到对应类别的middleware list中
+            # request和view中间件采用尾部添加是因为django规定，中间件调用的次序是出现的顺序
             if hasattr(mw_instance, 'process_request'):
                 request_middleware.append(mw_instance.process_request)
             if hasattr(mw_instance, 'process_view'):
                 self._view_middleware.append(mw_instance.process_view)
+            # template，response，exception采用头插法是因为django规定这些中间件调用的次序是逆序
             if hasattr(mw_instance, 'process_template_response'):
                 self._template_response_middleware.insert(0, mw_instance.process_template_response)
             if hasattr(mw_instance, 'process_response'):
@@ -87,6 +89,7 @@ class BaseHandler(object):
                 view = transaction.atomic(using=db.alias)(view)
         return view
 
+    # 获取异常response
     def get_exception_response(self, request, resolver, status_code, exception):
         try:
             callback, param_dict = resolver.resolve_error_handler(status_code)
@@ -108,34 +111,43 @@ class BaseHandler(object):
 
         return response
 
+    # 返回response
     def get_response(self, request):
         "Returns an HttpResponse object for the given HttpRequest"
 
+        # 为该线程设置一个默认的url处理器，异常会在url处理器设置之前产生故不用try/except包围
         # Setup default url resolver for this thread, this code is outside
         # the try/except so we don't get a spurious "unbound local
         # variable" exception in the event an exception is raised before
         # resolver is set
+
+        # 默认是projectname/urls.py
         urlconf = settings.ROOT_URLCONF
         urlresolvers.set_urlconf(urlconf)
         resolver = urlresolvers.get_resolver(urlconf)
         # Use a flag to check if the response was rendered to prevent
         # multiple renderings or to force rendering if necessary.
+        # 防止多个render或暴力render
         response_is_rendered = False
         try:
             response = None
             # Apply request middleware
             for middleware_method in self._request_middleware:
                 response = middleware_method(request)
+                # request_middleware 采用尾部添加的原因
                 if response:
                     break
 
+            # 无request中间件的情况
             if response is None:
                 if hasattr(request, 'urlconf'):
                     # Reset url resolver with a custom URLconf.
+                    # request中有urlconf时重设url处理器
                     urlconf = request.urlconf
                     urlresolvers.set_urlconf(urlconf)
                     resolver = urlresolvers.get_resolver(urlconf)
 
+                # 匹配request.path_info中的url返回callback以及参数
                 resolver_match = resolver.resolve(request.path_info)
                 callback, callback_args, callback_kwargs = resolver_match
                 request.resolver_match = resolver_match
@@ -153,6 +165,7 @@ class BaseHandler(object):
                 except Exception as e:
                     response = self.process_exception_by_middleware(e, request)
 
+            # 执行到此处可以认定出现错误
             # Complain if the view returned None (a common error).
             if response is None:
                 if isinstance(callback, types.FunctionType):    # FBV
@@ -164,6 +177,7 @@ class BaseHandler(object):
 
             # If the response supports deferred rendering, apply template
             # response middleware and then render the response
+            # 如果response支持延迟渲染，加载response中间件然后渲染response
             if hasattr(response, 'render') and callable(response.render):
                 for middleware_method in self._template_response_middleware:
                     response = middleware_method(request, response)
@@ -180,17 +194,22 @@ class BaseHandler(object):
 
                 response_is_rendered = True
 
+        # 各类异常及处理方法
+        # 404
         except http.Http404 as exc:
             logger.warning('Not Found: %s', request.path,
                         extra={
                             'status_code': 404,
                             'request': request
                         })
+            # debug下返回debug的404页面
             if settings.DEBUG:
                 response = debug.technical_404_response(request, exc)
             else:
+                # 非debug情况下根据路由返回404页面
                 response = self.get_exception_response(request, resolver, 404, exc)
 
+        # 权限不足，通常是csrf
         except PermissionDenied as exc:
             logger.warning(
                 'Forbidden (Permission denied): %s', request.path,
@@ -199,7 +218,7 @@ class BaseHandler(object):
                     'request': request
                 })
             response = self.get_exception_response(request, resolver, 403, exc)
-
+        # 多个匹配url
         except MultiPartParserError as exc:
             logger.warning(
                 'Bad request (Unable to parse request body): %s', request.path,
@@ -209,6 +228,7 @@ class BaseHandler(object):
                 })
             response = self.get_exception_response(request, resolver, 400, exc)
 
+        # 可疑操作，安全方面
         except SuspiciousOperation as exc:
             # The request logger receives events for any problematic request
             # The security logger receives events for all SuspiciousOperations
@@ -253,11 +273,13 @@ class BaseHandler(object):
 
         # If the exception handler returns a TemplateResponse that has not
         # been rendered, force it to be rendered.
+        # 异常处理返回一个TemplateResponse，暴力渲染返回
         if not response_is_rendered and callable(getattr(response, 'render', None)):
             response = response.render()
 
         return response
 
+    # 异常中间件
     def process_exception_by_middleware(self, exception, request):
         """
         Pass the exception to the exception middleware. If no middleware
@@ -269,6 +291,7 @@ class BaseHandler(object):
                 return response
         raise
 
+    # 处理未被捕捉的异常
     def handle_uncaught_exception(self, request, resolver, exc_info):
         """
         Processing for any otherwise uncaught exceptions (those that will
@@ -300,6 +323,7 @@ class BaseHandler(object):
         callback, param_dict = resolver.resolve_error_handler(500)
         return callback(request, **param_dict)
 
+    # 对response进行过滤
     def apply_response_fixes(self, request, response):
         """
         Applies each of the functions in self.response_fixes to the request and
@@ -309,3 +333,14 @@ class BaseHandler(object):
         for func in self.response_fixes:
             response = func(request, response)
         return response
+
+
+"""
+包含：
+- BaseHandler类，用来处理httpRequest
+- 初始化和加载中间件，用了小技巧判断中间件是否都加载完毕
+- 异常处理函数
+- response过滤1xx，204, 304和请求方法为HEAD的response内容,
+  其中1xx为中间状态，response不应该返回，204为页面内容无更改，304为已存在缓存内容并可以用，请求方法为HEAD不应该返回请求头
+- 重要函数get_response()，用url处理器来处理request对象调用中间件并返回response，同时处理多种异常情况
+"""
