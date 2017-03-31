@@ -25,10 +25,12 @@ logger = logging.getLogger('django.request')
 class BaseHandler(object):
     # Changes that are always applied to a response (in this order).
     response_fixes = [
+        # response过滤，去除1xx，204，304以及request.method==HEAD的response内容
         http.conditional_content_removal,
     ]
 
     def __init__(self):
+        # 中间件
         self._request_middleware = None
         self._view_middleware = None
         self._template_response_middleware = None
@@ -47,7 +49,9 @@ class BaseHandler(object):
         self._exception_middleware = []
 
         request_middleware = []
+        # 从setting.MIDDLEWARE_CLASSES中加载中间件
         for middleware_path in settings.MIDDLEWARE_CLASSES:
+            # 注册middleware，作为module的attr返回给mw_class
             mw_class = import_string(middleware_path)
             try:
                 mw_instance = mw_class()
@@ -58,7 +62,7 @@ class BaseHandler(object):
                     else:
                         logger.debug('MiddlewareNotUsed: %r', middleware_path)
                 continue
-
+            # 判断middleware是否有以下属性，分别加入到对应类别的middleware list中
             if hasattr(mw_instance, 'process_request'):
                 request_middleware.append(mw_instance.process_request)
             if hasattr(mw_instance, 'process_view'):
@@ -72,6 +76,7 @@ class BaseHandler(object):
 
         # We only assign to this when initialization is complete as it is used
         # as a flag for initialization being complete.
+        # 单独取一个request_middleware来判断是否已经初始化完成中间件
         self._request_middleware = request_middleware
 
     def make_view_atomic(self, view):

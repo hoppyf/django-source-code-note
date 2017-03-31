@@ -38,8 +38,11 @@ def get_internal_wsgi_application():
     If settings.WSGI_APPLICATION is not set (is ``None``), we just return
     whatever ``django.core.wsgi.get_wsgi_application`` returns.
     """
+    # settings为LazySettings（）
     from django.conf import settings
+    # app_path为wsgi_application路径
     app_path = getattr(settings, 'WSGI_APPLICATION')
+    # 如果用户没有设置则返回默认django.core.wsgi.get_wsgi_application
     if app_path is None:
         return get_wsgi_application()
 
@@ -53,27 +56,30 @@ def get_internal_wsgi_application():
                 'exception': e,
             })
         )
+        # python2 python3兼容模块，重新抛出异常
         six.reraise(ImproperlyConfigured, ImproperlyConfigured(msg),
                     sys.exc_info()[2])
 
-
+# 判断异常的类型是否是socket.error的子类Broken pipe
 def is_broken_pipe_error():
     exc_type, exc_value = sys.exc_info()[:2]
     return issubclass(exc_type, socket.error) and exc_value.args[0] == 32
 
-
+# 重写wsgiref的WSGIServer模块
 class WSGIServer(simple_server.WSGIServer, object):
     """BaseHTTPServer that implements the Python WSGI protocol"""
-
+    # 请求队列大小
     request_queue_size = 10
 
     def __init__(self, *args, **kwargs):
+        # 是否使用的为ipv6
         if kwargs.pop('ipv6', False):
             self.address_family = socket.AF_INET6
         super(WSGIServer, self).__init__(*args, **kwargs)
 
     def server_bind(self):
         """Override server_bind to store the server name."""
+        # 监听端口，设置环境变量
         super(WSGIServer, self).server_bind()
         self.setup_environ()
 
@@ -125,7 +131,9 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler, object):
             msg = self.style.HTTP_NOT_FOUND(msg)
         elif args[1][0] == '4':
             # 0x16 = Handshake, 0x03 = SSL 3.0 or TLS 1.x
+            # 握手协议，SSL 3.0，TLS 1.x
             if args[0].startswith(str('\x16\x03')):
+                # 本地不支持HTTPS
                 msg = ("You're accessing the development server over HTTPS, "
                     "but it only supports HTTP.\n")
             msg = self.style.HTTP_BAD_REQUEST(msg)
@@ -140,6 +148,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler, object):
         # the WSGI environ. This prevents header-spoofing based on ambiguity
         # between underscores and dashes both normalized to underscores in WSGI
         # env vars. Nginx and Apache 2.4+ both do this as well.
+        # 去除请求头中下划线，防止请求头欺骗，再加入env中，Nginx和Apache也做这样的处理
         for k, v in self.headers.items():
             if '_' in k:
                 del self.headers[k]
@@ -147,9 +156,10 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler, object):
         env = super(WSGIRequestHandler, self).get_environ()
 
         path = self.path
+        # 取？之前的url作为path
         if '?' in path:
             path = path.partition('?')[0]
-
+        # uri(统一资源标识符)转iri（国际化资源定位符）
         path = uri_to_iri(path).encode(UTF_8)
         # Under Python 3, non-ASCII values in the WSGI environ are arbitrarily
         # decoded with ISO-8859-1. We replicate this behavior here.
@@ -171,7 +181,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler, object):
 
         if not self.parse_request():  # An error code has been sent, just exit
             return
-
+        # handler 读，写，标准错误流，环境变量
         handler = ServerHandler(
             self.rfile, self.wfile, self.get_stderr(), self.get_environ()
         )
@@ -181,6 +191,7 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler, object):
 
 def run(addr, port, wsgi_handler, ipv6=False, threading=False):
     server_address = (addr, port)
+    # 支持多线程处理
     if threading:
         httpd_cls = type(str('WSGIServer'), (socketserver.ThreadingMixIn, WSGIServer), {})
     else:
@@ -193,6 +204,22 @@ def run(addr, port, wsgi_handler, ipv6=False, threading=False):
         # termination before it quits. This will make auto-reloader faster
         # and will prevent the need to kill the server manually if a thread
         # isn't terminating correctly.
+        # 采用守护线程的方式，对于server终止或自动重载能更加快速--如果原进程非正常结束则杀死原线程
         httpd.daemon_threads = True
+    # 加载app并永久运行
     httpd.set_app(wsgi_handler)
     httpd.serve_forever()
+
+
+"""
+包含：
+- 获取配置的wsgi application
+- 特判broken pipe error异常
+- BaseServer -> TCPServer -> SocketServer.TCPServer -> HTTPServer -> simple_server.WSGIServer -> WSGIServer
+  用于接收http请求，封装环境变量，按照wsgi标准调用注册的wsgi app，最后将响应返回给客户端
+- BaseHandler -> wsgiref.handler.SimpleHandler -> simple_server.ServerHandler -> ServerHandler
+  用于辅助功能，如stdin，stdout，softenviron，logging等
+- BaseRequestHandler -> SocketServer.StreamRequestHandler -> BaseHTTPRequestHandler -> simple_server.WSGIRequestHandler -> WSGIRequestHandler
+  是对http请求所有操作的抽象，将http请求处理后转给server handler
+- run()方法接收ip，port，ip地址类别及是否使用多线程并启动服务
+"""

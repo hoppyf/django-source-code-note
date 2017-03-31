@@ -350,4 +350,4 @@ def execute_from_command_line(argv=None):
     A simple method that runs a ManagementUtility.
     """
     utility = ManagementUtility(argv)  # 通过ManagementUtility解析用户输入参数argv
-    utility.execute()
+    utility.execute()  # 执行命令
