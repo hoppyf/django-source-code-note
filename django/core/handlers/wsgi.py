@@ -26,6 +26,7 @@ class LimitedStream(object):
     '''
     LimitedStream wraps another stream in order to not allow reading from it
     past specified amount of bytes.
+    用于过滤stream使其不超过规定的字节
     '''
     def __init__(self, stream, limit, buf_size=64 * 1024 * 1024):
         self.stream = stream
@@ -33,6 +34,7 @@ class LimitedStream(object):
         self.buffer = b''
         self.buf_size = buf_size
 
+    # 在限制bytes下读取
     def _read_limited(self, size=None):
         if size is None or size > self.remaining:
             size = self.remaining
@@ -89,11 +91,15 @@ class WSGIRequest(http.HttpRequest):
         # be careful to only replace the first slash in the path because of
         # http://test/something and http://test//something being different as
         # stated in http://www.ietf.org/rfc/rfc2396.txt
+        # 生成实际url
         self.path = '%s/%s' % (script_name.rstrip('/'),
                                path_info.replace('/', '', 1))
+        # 环境变量
         self.META = environ
+        # url信息
         self.META['PATH_INFO'] = path_info
         self.META['SCRIPT_NAME'] = script_name
+        # request方法，大写
         self.method = environ['REQUEST_METHOD'].upper()
         _, content_params = cgi.parse_header(environ.get('CONTENT_TYPE', ''))
         if 'charset' in content_params:
@@ -115,6 +121,7 @@ class WSGIRequest(http.HttpRequest):
     def _get_scheme(self):
         return self.environ.get('wsgi.url_scheme')
 
+    # 对GET和COOKIES进行缓存
     @cached_property
     def GET(self):
         # The WSGI spec says 'QUERY_STRING' may be absent.
@@ -145,12 +152,15 @@ class WSGIRequest(http.HttpRequest):
 
 class WSGIHandler(base.BaseHandler):
     initLock = Lock()
+    # 处理来自WSGIRequest的请求
     request_class = WSGIRequest
 
     def __call__(self, environ, start_response):
+        # 在加载完settings后再执行加载中间件
         # Set up middleware if needed. We couldn't do this earlier, because
         # settings weren't available.
         if self._request_middleware is None:
+            # 采用request_middleware的小技巧来判断并加锁不让其他调用，并尝试加载中间件
             with self.initLock:
                 try:
                     # Check that middleware is still uninitialized.
@@ -160,7 +170,7 @@ class WSGIHandler(base.BaseHandler):
                     # Unload whatever middleware we got
                     self._request_middleware = None
                     raise
-
+        # 为不以"/"结尾的url加上"/""
         set_script_prefix(get_script_name(environ))
         signals.request_started.send(sender=self.__class__, environ=environ)
         try:
@@ -249,3 +259,12 @@ def get_str_from_wsgi(environ, key, default):
     """
     value = get_bytes_from_wsgi(environ, key, default)
     return value.decode(UTF_8, errors='replace') if six.PY3 else value
+
+
+"""
+包含：
+- LimitedStream类用于过滤流字节数，不能超过指定的字节数
+- http.HttpRequest -> WSGIRequest 将http请求封装
+- base.BaseHandler -> WSGIHandler 将WSGIRequest进行处理
+- 细节上是一些流的限制，编解码转换，GET和COOKIES的缓存，url路径和中间件是否加载的检查
+"""

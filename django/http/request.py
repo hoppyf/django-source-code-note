@@ -358,6 +358,8 @@ class QueryDict(MultiValueDict):
 
     # These are both reset in __init__, but is specified here at the class
     # level so that unpickling will have valid values
+
+    # 用于处理get或post的数据，普通dict键值对固定，为了适应<select multiple>等使用，即一键多值
     _mutable = True
     _encoding = None
 
@@ -403,6 +405,7 @@ class QueryDict(MultiValueDict):
         if not self._mutable:
             raise AttributeError("This QueryDict instance is immutable")
 
+    # 对于不可变的禁止修改，以下方法均用到_assert_mutable
     def __setitem__(self, key, value):
         self._assert_mutable()
         key = bytes_to_text(key, self.encoding)
