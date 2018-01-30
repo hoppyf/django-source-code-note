@@ -27,9 +27,11 @@ class AppConfig(object):
         # Last component of the Python path to the application eg. 'admin'.
         # This value must be unique across a Django project.
         if not hasattr(self, 'label'):
+            # 取label为startapp xxx的xxx，如django.contrib.admin的'admin'
             self.label = app_name.rpartition(".")[2]
 
         # Human-readable name for the application eg. "Admin".
+        # startapp 创建的app可以在apps.py设置可读的中文名配置
         if not hasattr(self, 'verbose_name'):
             self.verbose_name = self.label.title()
 
@@ -87,6 +89,7 @@ class AppConfig(object):
             # If import_module succeeds, entry is a path to an app module,
             # which may specify an app config class with default_app_config.
             # Otherwise, entry is a path to an app config class or an error.
+            # 将app作为一个python的模块导入作为module
             module = import_module(entry)
 
         except ImportError:
@@ -205,3 +208,5 @@ class AppConfig(object):
         """
         Override this method in subclasses to run code when Django starts.
         """
+
+# appconfig为app配置导入作用，将app作为python包导入到项目配置当中

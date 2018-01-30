@@ -25,12 +25,14 @@ class LazySettings(LazyObject):
     The user can manually configure settings prior to using them. Otherwise,
     Django uses the settings module pointed to by DJANGO_SETTINGS_MODULE.
     """
+
     def _setup(self, name=None):
         """
         Load the settings module pointed to by the environment variable. This
         is used the first time we need any settings at all, if the user has not
         previously configured the settings manually.
         """
+        # 获取环境变量中的DJANGO_SETTINGS_MODULE
         settings_module = os.environ.get(ENVIRONMENT_VARIABLE)
         if not settings_module:
             desc = ("setting %s" % name) if name else "settings"
@@ -80,6 +82,7 @@ class BaseSettings(object):
     """
     Common logic for settings whether set by a module or by the user.
     """
+
     def __setattr__(self, name, value):
         if name in ("MEDIA_URL", "STATIC_URL") and value and not value.endswith('/'):
             raise ImproperlyConfigured("If set, %s must end with a slash" % name)
@@ -89,6 +92,7 @@ class BaseSettings(object):
 class Settings(BaseSettings):
     def __init__(self, settings_module):
         # update this dict from global settings (but only for ALL_CAPS settings)
+        # 从global_settings中取出配置， global_settings为django的默认配置
         for setting in dir(global_settings):
             if setting.isupper():
                 setattr(self, setting, getattr(global_settings, setting))
@@ -96,6 +100,7 @@ class Settings(BaseSettings):
         # store the settings module in case someone later cares
         self.SETTINGS_MODULE = settings_module
 
+        # 导入用户定义的配置
         mod = importlib.import_module(self.SETTINGS_MODULE)
 
         tuple_settings = (
@@ -112,7 +117,8 @@ class Settings(BaseSettings):
                 if (setting in tuple_settings and
                         not isinstance(setting_value, (list, tuple))):
                     raise ImproperlyConfigured("The %s setting must be a list or a tuple. "
-                            "Please fix your settings." % setting)
+                                               "Please fix your settings." % setting)
+                # 用户配置覆盖默认配置， 此处存储全部settings配置
                 setattr(self, setting, setting_value)
                 self._explicit_settings.add(setting)
 
@@ -120,7 +126,7 @@ class Settings(BaseSettings):
             raise ImproperlyConfigured("The SECRET_KEY setting must not be empty.")
 
         if ('django.contrib.auth.middleware.AuthenticationMiddleware' in self.MIDDLEWARE_CLASSES and
-                'django.contrib.auth.middleware.SessionAuthenticationMiddleware' not in self.MIDDLEWARE_CLASSES):
+                    'django.contrib.auth.middleware.SessionAuthenticationMiddleware' not in self.MIDDLEWARE_CLASSES):
             warnings.warn(
                 "Session verification will become mandatory in Django 1.10. "
                 "Please add 'django.contrib.auth.middleware.SessionAuthenticationMiddleware' "
@@ -134,7 +140,7 @@ class Settings(BaseSettings):
             # this file, no check happens and it's harmless.
             zoneinfo_root = '/usr/share/zoneinfo'
             if (os.path.exists(zoneinfo_root) and not
-                    os.path.exists(os.path.join(zoneinfo_root, *(self.TIME_ZONE.split('/'))))):
+            os.path.exists(os.path.join(zoneinfo_root, *(self.TIME_ZONE.split('/'))))):
                 raise ValueError("Incorrect timezone setting: %s" % self.TIME_ZONE)
             # Move the time zone info into os.environ. See ticket #2315 for why
             # we don't do this unconditionally (breaks Windows).
@@ -195,4 +201,9 @@ class UserSettingsHolder(BaseSettings):
             'cls': self.__class__.__name__,
         }
 
+
 settings = LazySettings()
+
+
+# django配置项的加载，存储在settings中，包含系统默认的设置及用户的设置
+# _wrapped用于存储加载项，通过调用该属性可以判断是否成功的加载了配置

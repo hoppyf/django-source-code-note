@@ -62,12 +62,14 @@ class Apps(object):
         This method imports each application module and then each model module.
 
         It is thread safe and idempotent, but not reentrant.
+        线程安全 幂等 不可重入
         """
         if self.ready:
             return
 
         # populate() might be called by two threads in parallel on servers
         # that create threads before initializing the WSGI callable.
+        # 使用锁保证线程安全，存在两个线程并行的情况
         with self._lock:
             if self.ready:
                 return
@@ -204,7 +206,7 @@ class Apps(object):
         app_models = self.all_models[app_label]
         if model_name in app_models:
             if (model.__name__ == app_models[model_name].__name__ and
-                    model.__module__ == app_models[model_name].__module__):
+                        model.__module__ == app_models[model_name].__module__):
                 warnings.warn(
                     "Model '%s.%s' was already registered. "
                     "Reloading models is not advised as it can lead to inconsistencies, "
@@ -298,7 +300,7 @@ class Apps(object):
         installed = set(app_config.name for app_config in self.get_app_configs())
         if not available.issubset(installed):
             raise ValueError("Available apps isn't a subset of installed "
-                "apps, extra apps: %s" % ", ".join(available - installed))
+                             "apps, extra apps: %s" % ", ".join(available - installed))
 
         self.stored_app_configs.append(self.app_configs)
         self.app_configs = OrderedDict(
@@ -405,4 +407,7 @@ class Apps(object):
         for function in self._pending_operations.pop(key, []):
             function(model)
 
+
 apps = Apps(installed_apps=None)
+
+# 注册app

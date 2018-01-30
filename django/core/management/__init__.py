@@ -126,10 +126,11 @@ class ManagementUtility(object):
     A ManagementUtility has a number of commands, which can be manipulated
     by editing the self.commands dictionary.
     """
+
     def __init__(self, argv=None):
-        self.argv = argv or sys.argv[:]    # 接收用户参数
-        self.prog_name = os.path.basename(self.argv[0])
-        self.settings_exception = None
+        self.argv = argv or sys.argv[:]  # 接收用户参数
+        self.prog_name = os.path.basename(self.argv[0])  # 获取命令为django-admin or manage.py
+        self.settings_exception = None  # 初始异常为空
 
     def main_help_text(self, commands_only=False):
         """
@@ -186,7 +187,7 @@ class ManagementUtility(object):
             else:
                 sys.stderr.write("No Django settings specified.\n")
             sys.stderr.write("Unknown command: %r\nType '%s help' for usage.\n" %
-                (subcommand, self.prog_name))
+                             (subcommand, self.prog_name))
             sys.exit(1)
         if isinstance(app_name, BaseCommand):
             # If the command is already loaded, use it directly.
@@ -273,21 +274,25 @@ class ManagementUtility(object):
         """
         Given the command-line arguments, this figures out which subcommand is
         being run, creates a parser appropriate to that command, and runs it.
+        用于执行命令
         """
         try:
-            subcommand = self.argv[1]
+            subcommand = self.argv[1]  # manage.py 或 django-admin 后的命令
         except IndexError:
-            subcommand = 'help'  # Display help if no arguments were given.
+            subcommand = 'help'  # Display help if no arguments were given. 如未给出命令则显示help内容
 
         # Preprocess options to extract --settings and --pythonpath.
         # These options could affect the commands that are available, so they
         # must be processed early.
+        # 验证命令是否有效
+        # CommandParser是一个封装的命令解析类，方便命令的处理
         parser = CommandParser(None, usage="%(prog)s subcommand [options] [args]", add_help=False)
         parser.add_argument('--settings')
         parser.add_argument('--pythonpath')
         parser.add_argument('args', nargs='*')  # catch-all
         try:
             options, args = parser.parse_known_args(self.argv[2:])
+            # 添加settings的变量及python路径
             handle_default_options(options)
         except CommandError:
             pass  # Ignore any option errors at this point.
@@ -299,6 +304,7 @@ class ManagementUtility(object):
         ]
 
         try:  # 对INSTALLED_APPS进行加载并排错
+            # settings 为懒加载类实例，可被拦截和修改，最后使用DJANGO_SETTINGS_MODULE的配置
             settings.INSTALLED_APPS
         except ImproperlyConfigured as exc:
             self.settings_exception = exc
@@ -324,10 +330,13 @@ class ManagementUtility(object):
 
             # In all other cases, django.setup() is required to succeed.
             else:
+                # django.setup()导入了django的app模块，即可以使用model和view, 在需要使用到django ORM和视图的地方比较实用
                 django.setup()
 
+        # 作用暂时未知
         self.autocomplete()
 
+        # 处理help及version及自定义command命令
         if subcommand == 'help':
             if '--commands' in args:
                 sys.stdout.write(self.main_help_text(commands_only=True) + '\n')
@@ -341,6 +350,7 @@ class ManagementUtility(object):
             sys.stdout.write(django.get_version() + '\n')
         elif self.argv[1:] in (['--help'], ['-h']):
             sys.stdout.write(self.main_help_text() + '\n')
+        # 自定义命令
         else:
             self.fetch_command(subcommand).run_from_argv(self.argv)
 
@@ -349,5 +359,9 @@ def execute_from_command_line(argv=None):
     """
     A simple method that runs a ManagementUtility.
     """
-    utility = ManagementUtility(argv)  # 通过ManagementUtility解析用户输入参数argv
+    utility = ManagementUtility(
+        argv)  # 通过ManagementUtility解析用户输入参数argv, 如 manage.py runserver 或 django-admin startproject xxx
     utility.execute()  # 执行命令
+
+
+    # 解析用户输入命令/系统指令，manage.py和django-admin的命令解析

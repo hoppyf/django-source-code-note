@@ -18,10 +18,12 @@ TEMPLATE_DEBUG = False
 DEBUG_PROPAGATE_EXCEPTIONS = False
 
 # Whether to use the "Etag" header. This saves bandwidth but slows down performance.
+# 是否使用“Etag”头。这样可以节省带宽，但会降低性能。
 USE_ETAGS = False
 
 # People who get code error notifications.
 # In the format [('Full Name', 'email@example.com'), ('Full Name', 'anotheremail@example.com')]
+# 推荐使用sentry
 ADMINS = []
 
 # List of IP addresses, as strings, that:

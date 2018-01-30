@@ -552,3 +552,5 @@ LANG_INFO = {
         'fallback': ['zh-hant'],
     },
 }
+
+# 语言配置

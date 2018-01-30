@@ -16,3 +16,6 @@ def setup():
 
     configure_logging(settings.LOGGING_CONFIG, settings.LOGGING)
     apps.populate(settings.INSTALLED_APPS)
+
+# 配置log
+# 加载app
