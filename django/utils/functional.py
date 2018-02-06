@@ -11,6 +11,7 @@ from django.utils import six
 def curry(_curried_func, *args, **kwargs):
     def _curried(*moreargs, **morekwargs):
         return _curried_func(*(args + moreargs), **dict(kwargs, **morekwargs))
+
     return _curried
 
 
@@ -22,6 +23,7 @@ class cached_property(object):
     Optional ``name`` argument allows you to make cached properties of other
     methods. (e.g.  url = cached_property(get_absolute_url, name='url') )
     """
+
     def __init__(self, func, name=None):
         self.func = func
         self.__doc__ = getattr(func, '__doc__')
@@ -30,6 +32,7 @@ class cached_property(object):
     def __get__(self, instance, type=None):
         if instance is None:
             return self
+        # 将函数的运行结果存储在instance的__dict__中作为缓存
         res = instance.__dict__[self.name] = self.func(instance)
         return res
 
@@ -108,6 +111,7 @@ def lazy(func, *resultclasses):
                 # applies the given magic method of the result type.
                 res = func(*self.__args, **self.__kw)
                 return getattr(res, method_name)(*args, **kw)
+
             return __wrapper__
 
         def __text_cast(self):
@@ -193,7 +197,9 @@ def allow_lazy(func, *resultclasses):
         else:
             return func(*args, **kwargs)
         return lazy_func(*args, **kwargs)
+
     return wrapper
+
 
 empty = object()
 
@@ -203,6 +209,7 @@ def new_method_proxy(func):
         if self._wrapped is empty:
             self._setup()
         return func(self._wrapped, *args)
+
     return inner
 
 
@@ -325,6 +332,8 @@ def unpickle_lazyobject(wrapped):
     wrapped object.
     """
     return wrapped
+
+
 unpickle_lazyobject.__safe_for_unpickling__ = True
 
 
@@ -335,6 +344,7 @@ class SimpleLazyObject(LazyObject):
     Designed for compound objects of unknown type. For builtins or objects of
     known type, use django.utils.functional.lazy.
     """
+
     def __init__(self, func):
         """
         Pass in a callable that returns the object to be wrapped.
@@ -383,6 +393,7 @@ class lazy_property(property):
     A property that works with subclasses by wrapping the decorated
     functions of the base class.
     """
+
     def __new__(cls, fget=None, fset=None, fdel=None, doc=None):
         if fget is not None:
             @wraps(fget)

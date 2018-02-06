@@ -16,8 +16,9 @@ def get_connection(using=None):
     Get a database connection by name, or the default database connection
     if no name is provided. This is a private API.
     """
+    # 根据选定的数据库连接
     if using is None:
-        using = DEFAULT_DB_ALIAS
+        using = DEFAULT_DB_ALIAS  # default
     return connections[using]
 
 
@@ -25,6 +26,7 @@ def get_autocommit(using=None):
     """
     Get the autocommit status of the connection.
     """
+    # 获取自动提交
     return get_connection(using).get_autocommit()
 
 
@@ -32,6 +34,7 @@ def set_autocommit(autocommit, using=None):
     """
     Set the autocommit status of the connection.
     """
+    # 设置自动提交
     return get_connection(using).set_autocommit(autocommit)
 
 

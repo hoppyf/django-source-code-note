@@ -33,8 +33,8 @@ def render_to_response(template_name, context=None,  # render_to_response中比r
     django.template.loader.render_to_string() with the passed arguments.
     """
     if (context_instance is _context_instance_undefined
-            and dirs is _dirs_undefined
-            and dictionary is _dictionary_undefined):
+        and dirs is _dirs_undefined
+        and dictionary is _dictionary_undefined):
         # No deprecated arguments were passed - use the new code path
         content = loader.render_to_string(template_name, context, using=using)
 
@@ -58,9 +58,9 @@ def render(request, template_name, context=None,
     Uses a RequestContext by default.
     """
     if (context_instance is _context_instance_undefined
-            and current_app is _current_app_undefined
-            and dirs is _dirs_undefined
-            and dictionary is _dictionary_undefined):
+        and current_app is _current_app_undefined
+        and dirs is _dirs_undefined
+        and dictionary is _dictionary_undefined):
         # No deprecated arguments were passed - use the new code path
         # In Django 1.10, request should become a positional argument.
         content = loader.render_to_string(
@@ -108,7 +108,8 @@ def redirect(to, *args, **kwargs):
     By default issues a temporary redirect; pass permanent=True to issue a
     permanent redirect
     """
-    if kwargs.pop('permanent', False):  # 分别表示301和302两种状态码，详见http://stackoverflow.com/questions/1393280/http-redirect-301-permanent-vs-302-temporary
+    # 分别表示301和302两种状态码，详见http://stackoverflow.com/questions/1393280/http-redirect-301-permanent-vs-302-temporary
+    if kwargs.pop('permanent', False):
         redirect_class = HttpResponsePermanentRedirect
     else:
         redirect_class = HttpResponseRedirect

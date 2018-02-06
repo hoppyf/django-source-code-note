@@ -194,6 +194,7 @@ class BaseDatabaseWrapper(object):
         """
         Guarantees that a connection to the database is established.
         """
+        # 保证数据库连接有效
         if self.connection is None:
             with self.wrap_database_errors:
                 self.connect()
@@ -237,7 +238,9 @@ class BaseDatabaseWrapper(object):
         """
         Commits a transaction and resets the dirty flag.
         """
+        # 验证是否线程共享
         self.validate_thread_sharing()
+        # 验证是否是原子操作
         self.validate_no_atomic_block()
         self._commit()
         # A successful commit means that the database connection works.
@@ -377,6 +380,7 @@ class BaseDatabaseWrapper(object):
         explicit BEGIN with SQLite. This option will be ignored for other
         backends.
         """
+        # 在进行事务操作时自动提交默认off
         self.validate_no_atomic_block()
         self.ensure_connection()
 
@@ -517,10 +521,10 @@ class BaseDatabaseWrapper(object):
         if not (self.allow_thread_sharing
                 or self._thread_ident == thread.get_ident()):
             raise DatabaseError("DatabaseWrapper objects created in a "
-                "thread can only be used in that same thread. The object "
-                "with alias '%s' was created in thread id %s and this is "
-                "thread id %s."
-                % (self.alias, self._thread_ident, thread.get_ident()))
+                                "thread can only be used in that same thread. The object "
+                                "with alias '%s' was created in thread id %s and this is "
+                                "thread id %s."
+                                % (self.alias, self._thread_ident, thread.get_ident()))
 
     # ##### Miscellaneous #####
 

@@ -100,6 +100,7 @@ class DatabaseErrorWrapper(object):
         def inner(*args, **kwargs):
             with self:
                 return func(*args, **kwargs)
+
         return inner
 
 
@@ -148,10 +149,10 @@ class ConnectionHandler(object):
         databases is an optional dictionary of database definitions (structured
         like settings.DATABASES).
         """
-        self._databases = databases
-        self._connections = local()
+        self._databases = databases  # 结构同settings中的DATABASES，初始为None
+        self._connections = local()  # 线程互不干扰的值，默认为{}
 
-    @cached_property
+    @cached_property  # 由于经常读取数据库配置，可以缓存该结果
     def databases(self):
         if self._databases is None:
             self._databases = settings.DATABASES
@@ -164,6 +165,7 @@ class ConnectionHandler(object):
         if self._databases[DEFAULT_DB_ALIAS] == {}:
             self._databases[DEFAULT_DB_ALIAS]['ENGINE'] = 'django.db.backends.dummy'
 
+        # 必须设置一个默认的数据库配置，无router时会默认使用默认数据库
         if DEFAULT_DB_ALIAS not in self._databases:
             raise ImproperlyConfigured("You must define a '%s' database" % DEFAULT_DB_ALIAS)
         return self._databases
@@ -223,6 +225,7 @@ class ConnectionHandler(object):
     def __iter__(self):
         return iter(self.databases)
 
+    # 获取全部的databases
     def all(self):
         return [self[alias] for alias in self]
 
@@ -242,16 +245,16 @@ class ConnectionRouter(object):
         """
         self._routers = routers
 
-    @cached_property
+    @cached_property  # 同数据库连接Handler
     def routers(self):
         if self._routers is None:
-            self._routers = settings.DATABASE_ROUTERS
+            self._routers = settings.DATABASE_ROUTERS  # 根据global_settings.py中的配置DATABASE_ROUTERS默认为[]
         routers = []
         for r in self._routers:
             if isinstance(r, six.string_types):
-                router = import_string(r)()
+                router = import_string(r)()  # 尝试导入路径的包
             else:
-                router = r
+                router = r  # str类型直接加入配置
             routers.append(router)
         return routers
 
@@ -272,6 +275,7 @@ class ConnectionRouter(object):
             if instance is not None and instance._state.db:
                 return instance._state.db
             return DEFAULT_DB_ALIAS
+
         return _route_db
 
     db_for_read = _router_func('db_for_read')

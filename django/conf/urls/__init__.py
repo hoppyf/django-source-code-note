@@ -48,6 +48,7 @@ def include(arg, namespace=None, app_name=None):
         # No namespace hint - use manually provided namespace
         urlconf_module = arg
 
+    # 导入include中str类型的参数，eg. from xxx.urls import *
     if isinstance(urlconf_module, six.string_types):
         urlconf_module = import_module(urlconf_module)
     patterns = getattr(urlconf_module, 'urlpatterns', urlconf_module)
